@@ -1,0 +1,33 @@
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Cache files
+cache/
+*.pkl
+
+# Large data files (too large for GitHub - use Git LFS or store elsewhere)
+*.tif
+*.zip
+# Note: ACLED CSV files are small enough to include
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
