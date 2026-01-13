@@ -754,9 +754,9 @@ def standardize_admin_columns(gdf, level):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_admin_boundaries():
-    """Load administrative boundaries from GADM shapefiles
+    """Load administrative boundaries from GeoJSON files
     
-    Primary source: gadm41_DJI_shp.zip (local file with admin0-2)
+    Primary source: data/boundaries/*.geojson (extracted from GADM)
     Note: GADM for Djibouti only includes admin0, admin1, and admin2
     Admin2 will be used as admin3 for compatibility
     
@@ -768,78 +768,58 @@ def load_admin_boundaries():
     start_time = time.time()
     
     # Check cache first
-    cache_key = get_cache_key("djibouti_admin_boundaries", "v7_gadm_local")
+    cache_key = get_cache_key("djibouti_admin_boundaries", "v8_geojson")
     cached_data = load_from_cache(cache_key)
     if cached_data is not None:
         log_performance("load_admin_boundaries", time.time() - start_time)
         return cached_data
     
     boundaries = {}
-    temp_dir = None
+    BOUNDARIES_PATH = DATA_PATH / "boundaries"
     
     try:
-        # First, try to load from local GADM shapefile zip
-        gadm_zip = Path("gadm41_DJI_shp.zip")
-        if gadm_zip.exists():
-            st.info("Loading administrative boundaries from GADM shapefiles...")
+        # First, try to load from pre-extracted GeoJSON files
+        admin1_geojson = BOUNDARIES_PATH / "admin1_regions.geojson"
+        admin2_geojson = BOUNDARIES_PATH / "admin2_subprefectures.geojson"
+        admin3_geojson = BOUNDARIES_PATH / "admin3_subprefectures.geojson"
+        
+        if admin1_geojson.exists() and admin2_geojson.exists():
+            st.info("Loading administrative boundaries from GeoJSON files...")
             
-            # Extract GADM from zip
-            temp_dir = tempfile.mkdtemp()
-            with zipfile.ZipFile(gadm_zip, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
+            # Load admin1 (regions)
+            try:
+                admin1_gdf = gpd.read_file(str(admin1_geojson))
+                admin1_gdf = admin1_gdf.to_crs('EPSG:4326')
+                boundaries[1] = standardize_admin_columns(admin1_gdf, level=1)
+                st.success(f"✓ Loaded {len(boundaries[1])} regions")
+            except Exception as e:
+                st.warning(f"Could not load admin1: {e}")
             
-            # GADM structure: gadm41_DJI_0.shp (country), gadm41_DJI_1.shp (admin1), gadm41_DJI_2.shp (admin2)
-            # Note: GADM for Djibouti only has admin0, admin1, admin2 - no admin3
+            # Load admin2 (sub-prefectures)
+            try:
+                admin2_gdf = gpd.read_file(str(admin2_geojson))
+                admin2_gdf = admin2_gdf.to_crs('EPSG:4326')
+                boundaries[2] = standardize_admin_columns(admin2_gdf, level=2)
+                st.success(f"✓ Loaded {len(boundaries[2])} sub-prefectures")
+            except Exception as e:
+                st.warning(f"Could not load admin2: {e}")
             
-            # Load admin1 (states/regions)
-            admin1_shp = Path(temp_dir) / "gadm41_DJI_1.shp"
-            if admin1_shp.exists():
+            # Load admin3 (use admin2 if admin3 file doesn't exist)
+            if admin3_geojson.exists():
                 try:
-                    admin1_gdf = gpd.read_file(str(admin1_shp))
-                    admin1_gdf = admin1_gdf.to_crs('EPSG:4326')
-                    # Map GADM columns to standard format
-                    if 'GID_1' in admin1_gdf.columns:
-                        admin1_gdf['ADM1_PCODE'] = admin1_gdf['GID_1']
-                    if 'NAME_1' in admin1_gdf.columns:
-                        admin1_gdf['ADM1_EN'] = admin1_gdf['NAME_1']
-                    boundaries[1] = standardize_admin_columns(admin1_gdf, level=1)
-                    st.success(f"✓ Loaded {len(boundaries[1])} admin1 units")
+                    admin3_gdf = gpd.read_file(str(admin3_geojson))
+                    admin3_gdf = admin3_gdf.to_crs('EPSG:4326')
+                    boundaries[3] = standardize_admin_columns(admin3_gdf, level=3)
+                    st.success(f"✓ Loaded {len(boundaries[3])} sub-prefectures (as admin3)")
                 except Exception as e:
-                    st.warning(f"Could not load admin1: {e}")
-                    import traceback
-                    st.error(traceback.format_exc())
-            
-            # Load admin2 (counties/districts)
-            admin2_shp = Path(temp_dir) / "gadm41_DJI_2.shp"
-            if admin2_shp.exists():
-                try:
-                    admin2_gdf = gpd.read_file(str(admin2_shp))
-                    admin2_gdf = admin2_gdf.to_crs('EPSG:4326')
-                    # Map GADM columns to standard format
-                    if 'GID_2' in admin2_gdf.columns:
-                        admin2_gdf['ADM2_PCODE'] = admin2_gdf['GID_2']
-                    if 'NAME_2' in admin2_gdf.columns:
-                        admin2_gdf['ADM2_EN'] = admin2_gdf['NAME_2']
-                    if 'GID_1' in admin2_gdf.columns:
-                        admin2_gdf['ADM1_PCODE'] = admin2_gdf['GID_1']
-                    if 'NAME_1' in admin2_gdf.columns:
-                        admin2_gdf['ADM1_EN'] = admin2_gdf['NAME_1']
-                    boundaries[2] = standardize_admin_columns(admin2_gdf, level=2)
-                    st.success(f"✓ Loaded {len(boundaries[2])} admin2 units")
-                except Exception as e:
-                    st.warning(f"Could not load admin2: {e}")
-                    import traceback
-                    st.error(traceback.format_exc())
-            
-            # GADM doesn't have admin3, so create it from admin2 for compatibility
-            if 2 in boundaries and not boundaries[2].empty:
+                    st.warning(f"Could not load admin3: {e}")
+            elif 2 in boundaries and not boundaries[2].empty:
                 boundaries[3] = boundaries[2].copy()
-                # Ensure admin3 columns exist
                 if 'ADM2_PCODE' in boundaries[3].columns:
                     boundaries[3]['ADM3_PCODE'] = boundaries[3]['ADM2_PCODE']
                 if 'ADM2_EN' in boundaries[3].columns:
                     boundaries[3]['ADM3_EN'] = boundaries[3]['ADM2_EN']
-                st.info(f"ℹ Note: GADM doesn't include admin3. Using admin2 as admin3 ({len(boundaries[3])} units)")
+                st.info(f"ℹ Using admin2 as admin3 ({len(boundaries[3])} units)")
             
             # Build admin1 from admin2 if admin1 is missing
             if (1 not in boundaries or boundaries[1].empty) and (2 in boundaries and not boundaries[2].empty):
@@ -854,189 +834,16 @@ def load_admin_boundaries():
                 log_performance("load_admin_boundaries", time.time() - start_time)
                 return boundaries
         
-        # Fallback to FeatureServer if GADM not available or failed
-        st.info("Loading admin2 (county) boundaries from ArcGIS FeatureServer...")
-        admin2_url = "https://services.arcgis.com/nzS0F0zdNLvs7nc8/arcgis/rest/services/djibouti_admin2_boundaries_from_HDX/FeatureServer/0/query"
-        params = {
-            'where': '1=1',
-            'outFields': '*',
-            'f': 'geojson',
-            'outSR': '4326'
-        }
+        # If GeoJSON files don't exist, show helpful error message
+        st.error("❌ Boundary GeoJSON files not found!")
+        st.info(f"💡 Please run 'python extract_boundaries_to_geojson.py' to create boundary files from GADM shapefiles.")
+        st.info(f"Expected files:")
+        st.info(f"  - {admin1_geojson}")
+        st.info(f"  - {admin2_geojson}")
+        st.info(f"  - {admin3_geojson} (optional)")
         
-        response = requests.get(admin2_url, params=params, timeout=60)
-        response.raise_for_status()
-        
-        # Load as GeoDataFrame
-        admin2_gdf = gpd.read_file(response.text, driver='GeoJSON')
-        admin2_gdf = admin2_gdf.to_crs('EPSG:4326')
-        
-        # Standardize column names - COD-AB standard uses ADM2_PCODE, ADM2_EN, ADM1_PCODE, ADM1_EN
-        # Check for exact matches first, then pattern match
-        column_mapping = {}
-        for col in admin2_gdf.columns:
-            col_upper = col.upper()
-            # Exact matches first
-            if col_upper == 'ADM2_PCODE':
-                column_mapping[col] = 'ADM2_PCODE'
-            elif col_upper == 'ADM2_EN' or col_upper == 'ADM2_NAME':
-                column_mapping[col] = 'ADM2_EN'
-            elif col_upper == 'ADM1_PCODE':
-                column_mapping[col] = 'ADM1_PCODE'
-            elif col_upper == 'ADM1_EN' or col_upper == 'ADM1_NAME':
-                column_mapping[col] = 'ADM1_EN'
-            # Pattern matches (more specific)
-            elif 'ADM2' in col_upper and 'PCODE' in col_upper:
-                column_mapping[col] = 'ADM2_PCODE'
-            elif 'ADM2' in col_upper and ('EN' in col_upper or 'NAME' in col_upper):
-                column_mapping[col] = 'ADM2_EN'
-            elif 'ADM1' in col_upper and 'PCODE' in col_upper:
-                column_mapping[col] = 'ADM1_PCODE'
-            elif 'ADM1' in col_upper and ('EN' in col_upper or 'NAME' in col_upper):
-                column_mapping[col] = 'ADM1_EN'
-        
-        # Rename columns
-        if column_mapping:
-            admin2_gdf = admin2_gdf.rename(columns=column_mapping)
-        
-        # Ensure required columns exist - create if missing
-        if 'ADM2_PCODE' not in admin2_gdf.columns:
-            # Try to find any PCODE column (prefer ADM2, but take any)
-            pcode_cols = [c for c in admin2_gdf.columns if 'PCODE' in c.upper() and 'ADM2' in c.upper()]
-            if not pcode_cols:
-                pcode_cols = [c for c in admin2_gdf.columns if 'PCODE' in c.upper() or ('CODE' in c.upper() and 'ADM2' in c.upper())]
-            if pcode_cols:
-                admin2_gdf['ADM2_PCODE'] = admin2_gdf[pcode_cols[0]].astype(str)
-            else:
-                admin2_gdf['ADM2_PCODE'] = admin2_gdf.index.astype(str)
-        
-        if 'ADM2_EN' not in admin2_gdf.columns:
-            name_cols = [c for c in admin2_gdf.columns if ('ADM2' in c.upper() and ('NAME' in c.upper() or 'EN' in c.upper()))]
-            if not name_cols:
-                name_cols = [c for c in admin2_gdf.columns if 'NAME' in c.upper() or 'EN' in c.upper()]
-            if name_cols:
-                admin2_gdf['ADM2_EN'] = admin2_gdf[name_cols[0]].astype(str)
-            else:
-                admin2_gdf['ADM2_EN'] = admin2_gdf['ADM2_PCODE']
-        
-        if 'ADM1_PCODE' not in admin2_gdf.columns:
-            # Try to find ADM1/state code column
-            adm1_cols = [c for c in admin2_gdf.columns if 'ADM1' in c.upper() and 'PCODE' in c.upper()]
-            if not adm1_cols:
-                adm1_cols = [c for c in admin2_gdf.columns if 'ADM1' in c.upper() or ('STATE' in c.upper() and 'CODE' in c.upper())]
-            if adm1_cols:
-                admin2_gdf['ADM1_PCODE'] = admin2_gdf[adm1_cols[0]].astype(str)
-            else:
-                # Extract from ADM2_PCODE if it contains state code (first 3 chars often)
-                if 'ADM2_PCODE' in admin2_gdf.columns:
-                    admin2_gdf['ADM1_PCODE'] = admin2_gdf['ADM2_PCODE'].astype(str).str[:3]
-                else:
-                    admin2_gdf['ADM1_PCODE'] = admin2_gdf.index.astype(str)
-        
-        if 'ADM1_EN' not in admin2_gdf.columns:
-            adm1_name_cols = [c for c in admin2_gdf.columns if 'ADM1' in c.upper() and ('NAME' in c.upper() or 'EN' in c.upper())]
-            if not adm1_name_cols:
-                adm1_name_cols = [c for c in admin2_gdf.columns if 'STATENAME' in c.upper() or ('STATE' in c.upper() and 'NAME' in c.upper())]
-            if adm1_name_cols:
-                admin2_gdf['ADM1_EN'] = admin2_gdf[adm1_name_cols[0]].astype(str)
-            else:
-                admin2_gdf['ADM1_EN'] = admin2_gdf['ADM1_PCODE']
-        
-        boundaries[2] = admin2_gdf
-        
-        # Build State boundaries by dissolving admin2 (10 states according to COD-AB metadata)
-        state_gdf = admin2_gdf.dissolve(by=['ADM1_PCODE', 'ADM1_EN'], aggfunc='first')
-        state_gdf = state_gdf.reset_index()
-        boundaries[1] = state_gdf
-        
-        # Try to load admin3 (payam) boundaries from FeatureServer
-        # 512 payams according to COD-AB metadata
-        # Try different layer numbers (common patterns: layer 1 for admin1, layer 2 for admin3, etc.)
-        admin3_gdf = None
-        st.info("Checking for admin3 (sub-prefecture) boundaries in FeatureServer...")
-        for layer_id in [1, 2, 3, 4, 5]:
-            try:
-                admin3_url = f"https://services.arcgis.com/nzS0F0zdNLvs7nc8/arcgis/rest/services/djibouti_admin2_boundaries_from_HDX/FeatureServer/{layer_id}/query"
-                response = requests.get(admin3_url, params=params, timeout=30)
-                if response.status_code == 200:
-                    temp_gdf = gpd.read_file(response.text, driver='GeoJSON')
-                    if not temp_gdf.empty:
-                        # Check if this looks like admin3 data (has ADM3 columns or many features ~512)
-                        col_str = str(temp_gdf.columns).upper()
-                        if 'ADM3' in col_str or (len(temp_gdf) > 400 and len(temp_gdf) < 600):
-                            admin3_gdf = temp_gdf.to_crs('EPSG:4326')
-                            break
-            except Exception:
-                continue
-        
-        # If admin3 not found in FeatureServer, try local shapefile
-        if admin3_gdf is None or admin3_gdf.empty:
-            ward_file = DATA_PATH / "wards" / "wards.shp"
-            if ward_file.exists():
-                st.info("Loading admin3 (sub-prefecture) boundaries from local shapefile...")
-                admin3_gdf = gpd.read_file(ward_file)
-                admin3_gdf = admin3_gdf.to_crs('EPSG:4326')
-                
-                admin3_gdf = admin3_gdf.rename(columns={
-                    'ward_cd': 'ADM3_PCODE',
-                    'stat_cd': 'ADM1_PCODE', 
-                    'lga_cod': 'ADM2_PCODE',
-                    'wrd_nm_x': 'ADM3_EN'
-                })
-            else:
-                admin3_gdf = gpd.GeoDataFrame()
-        
-        # Standardize admin3 column names if loaded from FeatureServer
-        if admin3_gdf is not None and not admin3_gdf.empty and 'ADM3_PCODE' not in admin3_gdf.columns:
-            column_mapping = {}
-            for col in admin3_gdf.columns:
-                col_upper = col.upper()
-                if col_upper == 'ADM3_PCODE' or ('ADM3' in col_upper and 'PCODE' in col_upper):
-                    column_mapping[col] = 'ADM3_PCODE'
-                elif col_upper == 'ADM3_EN' or col_upper == 'ADM3_NAME' or ('ADM3' in col_upper and ('EN' in col_upper or 'NAME' in col_upper)):
-                    column_mapping[col] = 'ADM3_EN'
-                elif col_upper == 'ADM2_PCODE' or ('ADM2' in col_upper and 'PCODE' in col_upper):
-                    column_mapping[col] = 'ADM2_PCODE'
-                elif col_upper == 'ADM2_EN' or col_upper == 'ADM2_NAME' or ('ADM2' in col_upper and ('EN' in col_upper or 'NAME' in col_upper)):
-                    column_mapping[col] = 'ADM2_EN'
-                elif col_upper == 'ADM1_PCODE' or ('ADM1' in col_upper and 'PCODE' in col_upper):
-                    column_mapping[col] = 'ADM1_PCODE'
-                elif col_upper == 'ADM1_EN' or col_upper == 'ADM1_NAME' or ('ADM1' in col_upper and ('EN' in col_upper or 'NAME' in col_upper)):
-                    column_mapping[col] = 'ADM1_EN'
-            
-            if column_mapping:
-                admin3_gdf = admin3_gdf.rename(columns=column_mapping)
-            
-            # Ensure required columns exist
-            if 'ADM3_PCODE' not in admin3_gdf.columns:
-                pcode_cols = [c for c in admin3_gdf.columns if 'PCODE' in c.upper() and 'ADM3' in c.upper()]
-                if pcode_cols:
-                    admin3_gdf['ADM3_PCODE'] = admin3_gdf[pcode_cols[0]].astype(str)
-                else:
-                    admin3_gdf['ADM3_PCODE'] = admin3_gdf.index.astype(str)
-            
-            if 'ADM3_EN' not in admin3_gdf.columns:
-                name_cols = [c for c in admin3_gdf.columns if 'ADM3' in c.upper() and ('NAME' in c.upper() or 'EN' in c.upper())]
-                if name_cols:
-                    admin3_gdf['ADM3_EN'] = admin3_gdf[name_cols[0]].astype(str)
-                elif 'ADM3_PCODE' in admin3_gdf.columns:
-                    admin3_gdf['ADM3_EN'] = admin3_gdf['ADM3_PCODE']
-                else:
-                    admin3_gdf['ADM3_EN'] = admin3_gdf.index.astype(str)
-        
-        # Map state and county names from admin2 boundaries to admin3
-        if admin3_gdf is not None and not admin3_gdf.empty and not admin2_gdf.empty:
-            if 'ADM1_EN' not in admin3_gdf.columns or (admin3_gdf['ADM1_EN'].isna().any() if 'ADM1_EN' in admin3_gdf.columns else True):
-                if 'ADM1_PCODE' in admin3_gdf.columns:
-                    state_mapping = dict(zip(admin2_gdf['ADM1_PCODE'], admin2_gdf['ADM1_EN']))
-                    admin3_gdf['ADM1_EN'] = admin3_gdf['ADM1_PCODE'].map(state_mapping).fillna(admin3_gdf['ADM1_PCODE'])
-            
-            if 'ADM2_EN' not in admin3_gdf.columns or (admin3_gdf['ADM2_EN'].isna().any() if 'ADM2_EN' in admin3_gdf.columns else True):
-                if 'ADM2_PCODE' in admin3_gdf.columns:
-                    county_mapping = dict(zip(admin2_gdf['ADM2_PCODE'], admin2_gdf['ADM2_EN']))
-                    admin3_gdf['ADM2_EN'] = admin3_gdf['ADM2_PCODE'].map(county_mapping).fillna(admin3_gdf['ADM2_PCODE'])
-        
-        boundaries[3] = admin3_gdf if admin3_gdf is not None else gpd.GeoDataFrame()
+        # Return empty boundaries
+        boundaries = {1: gpd.GeoDataFrame(), 2: gpd.GeoDataFrame(), 3: gpd.GeoDataFrame()}
             
     except Exception as e:
         st.error(f"Error loading administrative boundaries: {str(e)}")

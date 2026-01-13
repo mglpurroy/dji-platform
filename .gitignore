@@ -17,6 +17,8 @@ cache/
 # Large data files (too large for GitHub - use Git LFS or store elsewhere)
 *.tif
 *.zip
+
+# Note: GeoJSON boundary files are small enough to include in repo
 # Note: ACLED CSV files are small enough to include
 
 # IDE
