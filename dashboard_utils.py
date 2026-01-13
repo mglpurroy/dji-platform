@@ -850,13 +850,6 @@ def load_admin_boundaries():
         import traceback
         st.error(traceback.format_exc())
         boundaries = {1: gpd.GeoDataFrame(), 2: gpd.GeoDataFrame(), 3: gpd.GeoDataFrame()}
-    finally:
-        # Clean up temporary directory if created
-        if temp_dir and Path(temp_dir).exists():
-            try:
-                shutil.rmtree(temp_dir)
-            except Exception:
-                pass  # Ignore cleanup errors
     
     # Cache the results
     save_to_cache(cache_key, boundaries)
