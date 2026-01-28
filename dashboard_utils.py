@@ -34,6 +34,23 @@ ACLED_DATA = Path("acled_Djibouti.csv")
 START_YEAR = 1997
 END_YEAR = 2025
 
+def get_latest_commit_date():
+    """Get the date of the latest git commit"""
+    try:
+        from subprocess import check_output
+        import datetime
+        result = check_output(['git', 'log', '-1', '--format=%ai'], stderr=None).decode('utf-8').strip()
+        if result:
+            # Parse the date string (format: "2026-01-27 20:42:26 -0500")
+            commit_date = datetime.datetime.strptime(result.split(' -')[0], '%Y-%m-%d %H:%M:%S')
+            return commit_date.year, commit_date.month
+    except Exception:
+        pass
+    # Fallback to current date if git is not available
+    import datetime
+    now = datetime.datetime.now()
+    return now.year, now.month
+
 # Initialize session state for performance tracking
 def init_session_state():
     """Initialize session state variables"""

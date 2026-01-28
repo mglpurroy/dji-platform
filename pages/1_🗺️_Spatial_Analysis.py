@@ -13,7 +13,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from dashboard_utils import (
     init_session_state, load_custom_css,
     load_population_data, create_admin_levels, load_conflict_data,
-    load_admin_boundaries, classify_and_aggregate_data, load_neighboring_country_events
+    load_admin_boundaries, classify_and_aggregate_data, load_neighboring_country_events,
+    get_latest_commit_date
 )
 from mapping_functions import create_admin_map, create_payam_map
 from streamlit_folium import st_folium
@@ -95,17 +96,31 @@ with col1:
     )
 
 with col2:
+    # Get latest commit date for default end date
+    latest_year, latest_month = get_latest_commit_date()
+    # Ensure year is within valid range
+    if latest_year < 1997:
+        latest_year = 2025
+    if latest_year > 2025:
+        latest_year = 2025
+    
+    # Calculate index for year (year - 1997)
+    year_index = min(latest_year - 1997, 28)  # Max index is 28 (2025)
+    
+    # Calculate index for month (month - 1, since months are 1-12 but index is 0-11)
+    month_index = min(latest_month - 1, 11)  # Max index is 11 (December)
+    
     end_year = st.selectbox(
         "End Year",
         options=list(range(1997, 2026)),
-        index=28,  # Default to 2025
+        index=year_index,  # Default to latest commit year
         key="end_year"
     )
     end_month = st.selectbox(
         "End Month",
         options=list(range(1, 13)),
         format_func=lambda x: datetime.date(2020, x, 1).strftime('%B'),
-        index=10,  # Default to November
+        index=month_index,  # Default to latest commit month
         key="end_month"
     )
 
