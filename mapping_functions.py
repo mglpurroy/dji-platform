@@ -167,6 +167,7 @@ def create_admin_map(aggregated, boundaries, agg_level, map_var, agg_thresh, per
         admin1_gdf_clean = clean_gdf_for_folium(admin1_gdf)
         folium.GeoJson(
             admin1_gdf_clean,
+            name="Region",
             style_function=lambda x: {
                 'fillColor': 'transparent',
                 'color': '#000000',
@@ -646,6 +647,7 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
         admin1_gdf_clean = clean_gdf_for_folium(admin1_gdf)
         folium.GeoJson(
             admin1_gdf_clean,
+            name="Region",
             style_function=lambda x: {
                 'fillColor': 'transparent',
                 'color': '#000000',
