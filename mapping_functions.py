@@ -306,16 +306,66 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
     )
     
     # Create parent FeatureGroup for additional layers (collapsible)
-    additional_layers_parent = folium.FeatureGroup(name="Additional Layers", show=False)
+    # Only create if we have any additional layers to show
+    has_additional_layers = (
+        (somalia_events is not None and not somalia_events.empty) or
+        (ethiopia_events is not None and not ethiopia_events.empty) or
+        (yemen_events is not None and not yemen_events.empty) or
+        (refugee_data is not None and not refugee_data.empty)
+    )
     
-    # Create subgroups for different layer types
-    conflict_events_group = FeatureGroupSubGroup(additional_layers_parent, "Neighboring Country Events")
-    refugee_group = FeatureGroupSubGroup(additional_layers_parent, "UNHCR Refugee Data")
-    
-    # Create individual subgroups for each country
-    somalia_subgroup = FeatureGroupSubGroup(conflict_events_group, "Somalia Events")
-    ethiopia_subgroup = FeatureGroupSubGroup(conflict_events_group, "Ethiopia Events")
-    yemen_subgroup = FeatureGroupSubGroup(conflict_events_group, "Yemen Events")
+    if has_additional_layers:
+        additional_layers_parent = folium.FeatureGroup(name="Additional Layers", show=False)
+        additional_layers_parent.add_to(m)
+        
+        # Create subgroups for different layer types (only if we have data)
+        has_conflict_events = (
+            (somalia_events is not None and not somalia_events.empty) or
+            (ethiopia_events is not None and not ethiopia_events.empty) or
+            (yemen_events is not None and not yemen_events.empty)
+        )
+        
+        if has_conflict_events:
+            conflict_events_group = FeatureGroupSubGroup(additional_layers_parent, "Neighboring Country Events")
+            conflict_events_group.add_to(m)
+            
+            # Create individual subgroups for each country (only if data exists)
+            if somalia_events is not None and not somalia_events.empty:
+                somalia_subgroup = FeatureGroupSubGroup(conflict_events_group, "Somalia Events")
+                somalia_subgroup.add_to(m)
+            else:
+                somalia_subgroup = None
+                
+            if ethiopia_events is not None and not ethiopia_events.empty:
+                ethiopia_subgroup = FeatureGroupSubGroup(conflict_events_group, "Ethiopia Events")
+                ethiopia_subgroup.add_to(m)
+            else:
+                ethiopia_subgroup = None
+                
+            if yemen_events is not None and not yemen_events.empty:
+                yemen_subgroup = FeatureGroupSubGroup(conflict_events_group, "Yemen Events")
+                yemen_subgroup.add_to(m)
+            else:
+                yemen_subgroup = None
+        else:
+            conflict_events_group = None
+            somalia_subgroup = None
+            ethiopia_subgroup = None
+            yemen_subgroup = None
+        
+        # Create refugee subgroup only if data exists
+        if refugee_data is not None and not refugee_data.empty:
+            refugee_group = FeatureGroupSubGroup(additional_layers_parent, "UNHCR Refugee Data")
+            refugee_group.add_to(m)
+        else:
+            refugee_group = None
+    else:
+        additional_layers_parent = None
+        conflict_events_group = None
+        refugee_group = None
+        somalia_subgroup = None
+        ethiopia_subgroup = None
+        yemen_subgroup = None
     
     # Create a single GeoJson layer with all sub-prefectures (much faster than individual layers)
     # Prepare fields for tooltip and popup
@@ -379,8 +429,8 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
     
     payam_geojson.add_to(m)
     
-    # Add neighboring country events as point layers (always add to subgroups if data exists)
-    if somalia_events is not None and not somalia_events.empty:
+    # Add neighboring country events as point layers (add to subgroups if they exist)
+    if somalia_events is not None and not somalia_events.empty and somalia_subgroup is not None:
         for idx, event in somalia_events.iterrows():
             # Create popup content
             event_date = event.get('event_date', 'N/A')
@@ -415,7 +465,7 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                 weight=2
             ).add_to(somalia_subgroup)
     
-    if ethiopia_events is not None and not ethiopia_events.empty:
+    if ethiopia_events is not None and not ethiopia_events.empty and ethiopia_subgroup is not None:
         for idx, event in ethiopia_events.iterrows():
             # Create popup content
             event_date = event.get('event_date', 'N/A')
@@ -450,7 +500,7 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                 weight=2
             ).add_to(ethiopia_subgroup)
     
-    if yemen_events is not None and not yemen_events.empty:
+    if yemen_events is not None and not yemen_events.empty and yemen_subgroup is not None:
         for idx, event in yemen_events.iterrows():
             # Create popup content
             event_date = event.get('event_date', 'N/A')
@@ -485,8 +535,8 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                 weight=2
             ).add_to(yemen_subgroup)
     
-    # Add refugee data layer if provided (always add to subgroup if data exists)
-    if refugee_data is not None and not refugee_data.empty:
+    # Add refugee data layer if provided (add to subgroup if it exists)
+    if refugee_data is not None and not refugee_data.empty and refugee_group is not None:
         refugee_data_clean = clean_gdf_for_folium(refugee_data)
         
         for idx, row in refugee_data_clean.iterrows():
@@ -551,9 +601,6 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                     ).add_to(refugee_group)
             except Exception:
                 continue  # Skip invalid geometries
-    
-    # Add all subgroups and parent group to map
-    additional_layers_parent.add_to(m)
     
     # Add Region borders on top of sub-prefectures (non-interactive to allow sub-prefecture clicks)
     admin1_gdf = boundaries[1]
