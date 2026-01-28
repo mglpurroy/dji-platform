@@ -454,11 +454,19 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
             </div>
             """
             
+            # Size marker based on fatalities (better scaling)
+            fatalities = int(event.get('fatalities', 0))
+            # Scale: 5px for 0-1, up to 25px for 100+ deaths
+            if fatalities > 0:
+                radius = max(5, min(25, 5 + (fatalities / 4)))
+            else:
+                radius = 5
+            
             folium.CircleMarker(
                 location=[event.geometry.y, event.geometry.x],
-                radius=5 + min(int(event.get('fatalities', 0)) / 5, 15),  # Size based on fatalities
+                radius=radius,
                 popup=folium.Popup(popup_html, max_width=300),
-                tooltip=f"Somalia: {int(event.get('fatalities', 0))} deaths",
+                tooltip=f"Somalia: {fatalities} deaths",
                 color='#e31a1c',
                 fillColor='#e31a1c',
                 fillOpacity=0.7,
@@ -489,11 +497,19 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
             </div>
             """
             
+            # Size marker based on fatalities (better scaling)
+            fatalities = int(event.get('fatalities', 0))
+            # Scale: 5px for 0-1, up to 25px for 100+ deaths
+            if fatalities > 0:
+                radius = max(5, min(25, 5 + (fatalities / 4)))
+            else:
+                radius = 5
+            
             folium.CircleMarker(
                 location=[event.geometry.y, event.geometry.x],
-                radius=5 + min(int(event.get('fatalities', 0)) / 5, 15),  # Size based on fatalities
+                radius=radius,
                 popup=folium.Popup(popup_html, max_width=300),
-                tooltip=f"Ethiopia: {int(event.get('fatalities', 0))} deaths",
+                tooltip=f"Ethiopia: {fatalities} deaths",
                 color='#238b45',
                 fillColor='#238b45',
                 fillOpacity=0.7,
@@ -524,11 +540,19 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
             </div>
             """
             
+            # Size marker based on fatalities (better scaling)
+            fatalities = int(event.get('fatalities', 0))
+            # Scale: 5px for 0-1, up to 25px for 100+ deaths
+            if fatalities > 0:
+                radius = max(5, min(25, 5 + (fatalities / 4)))
+            else:
+                radius = 5
+            
             folium.CircleMarker(
                 location=[event.geometry.y, event.geometry.x],
-                radius=5 + min(int(event.get('fatalities', 0)) / 5, 15),  # Size based on fatalities
+                radius=radius,
                 popup=folium.Popup(popup_html, max_width=300),
-                tooltip=f"Yemen: {int(event.get('fatalities', 0))} deaths",
+                tooltip=f"Yemen: {fatalities} deaths",
                 color='#feb24c',
                 fillColor='#feb24c',
                 fillOpacity=0.7,
@@ -541,12 +565,22 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
         
         for idx, row in refugee_data_clean.iterrows():
             try:
-                # Get refugee statistics
-                individuals = row.get('individuals', 0)
-                households = row.get('households', 0)
-                province = row.get('province', 'Unknown')
-                date = row.get('date', '')
-                source = row.get('source', '')
+                # Get refugee statistics (handle both dict access and Series access)
+                individuals = row['individuals'] if 'individuals' in row.index else 0
+                households = row['households'] if 'households' in row.index else 0
+                province = row['province'] if 'province' in row.index else 'Unknown'
+                date = row['date'] if 'date' in row.index else ''
+                source = row['source'] if 'source' in row.index else ''
+                
+                # Ensure individuals and households are integers
+                try:
+                    individuals = int(individuals) if individuals else 0
+                except (ValueError, TypeError):
+                    individuals = 0
+                try:
+                    households = int(households) if households else 0
+                except (ValueError, TypeError):
+                    households = 0
                 
                 # Format population groups
                 pop_groups = row.get('population_groups', [])
@@ -584,8 +618,12 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                 </div>
                 """
                 
-                # Size marker based on number of individuals
-                radius = max(8, min(20, 8 + (individuals / 1000))) if individuals > 0 else 8
+                # Size marker based on number of individuals (better scaling)
+                # Scale: 8px for 0-1000, up to 30px for 50000+
+                if individuals > 0:
+                    radius = max(8, min(30, 8 + (individuals / 2000)))
+                else:
+                    radius = 8
                 
                 # Point geometry - use CircleMarker
                 if row.geometry.geom_type == 'Point':
