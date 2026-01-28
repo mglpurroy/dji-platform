@@ -315,7 +315,7 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
     )
     
     if has_additional_layers:
-        additional_layers_parent = folium.FeatureGroup(name="Additional Layers", show=False)
+        additional_layers_parent = folium.FeatureGroup(name="Additional Layers", show=True)
         additional_layers_parent.add_to(m)
         
         # Create subgroups for different layer types (only if we have data)
