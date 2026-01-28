@@ -805,7 +805,6 @@ def load_admin_boundaries():
                 admin1_gdf = gpd.read_file(str(admin1_geojson))
                 admin1_gdf = admin1_gdf.to_crs('EPSG:4326')
                 boundaries[1] = standardize_admin_columns(admin1_gdf, level=1)
-                st.success(f"✓ Loaded {len(boundaries[1])} regions")
             except Exception as e:
                 st.warning(f"Could not load admin1: {e}")
             
@@ -814,7 +813,6 @@ def load_admin_boundaries():
                 admin2_gdf = gpd.read_file(str(admin2_geojson))
                 admin2_gdf = admin2_gdf.to_crs('EPSG:4326')
                 boundaries[2] = standardize_admin_columns(admin2_gdf, level=2)
-                st.success(f"✓ Loaded {len(boundaries[2])} sub-prefectures")
             except Exception as e:
                 st.warning(f"Could not load admin2: {e}")
             
@@ -824,7 +822,6 @@ def load_admin_boundaries():
                     admin3_gdf = gpd.read_file(str(admin3_geojson))
                     admin3_gdf = admin3_gdf.to_crs('EPSG:4326')
                     boundaries[3] = standardize_admin_columns(admin3_gdf, level=3)
-                    st.success(f"✓ Loaded {len(boundaries[3])} sub-prefectures (as admin3)")
                 except Exception as e:
                     st.warning(f"Could not load admin3: {e}")
             elif 2 in boundaries and not boundaries[2].empty:
