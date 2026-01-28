@@ -205,7 +205,6 @@ def load_population_data():
                     result_df['ADM2_EN'] = result_df['ADM2_PCODE']
                 
                 total_pop = result_df['pop_count'].sum()
-                st.success(f"✅ Loaded population data for {len(result_df)} sub-prefectures (total population: {total_pop:,.0f})")
                 
             except Exception as e:
                 st.error(f"❌ Error loading population file: {str(e)}")
@@ -801,8 +800,6 @@ def load_admin_boundaries():
         admin3_geojson = BOUNDARIES_PATH / "admin3_subprefectures.geojson"
         
         if admin1_geojson.exists() and admin2_geojson.exists():
-            st.info("Loading administrative boundaries from GeoJSON files...")
-            
             # Load admin1 (regions)
             try:
                 admin1_gdf = gpd.read_file(str(admin1_geojson))
