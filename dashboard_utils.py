@@ -887,13 +887,26 @@ def load_unhcr_refugee_data():
         import geopandas as gpd
         from shapely.geometry import Point
         
-        # Look for UNHCR refugee JSON file
+        # Look for UNHCR refugee JSON file (check multiple locations)
+        # Use absolute paths to avoid working directory issues
         refugee_files = [
-            Path("unhcr_refugees.json"),
-            Path("refugees_unhcr.json"),
-            Path("data/unhcr_refugees.json"),
-            Path("data/refugees_unhcr.json"),
+            Path("unhcr_refugees.json").resolve(),  # Current working directory
+            Path("refugees_unhcr.json").resolve(),
+            Path("data/unhcr_refugees.json").resolve(),
+            Path("data/refugees_unhcr.json").resolve(),
         ]
+        
+        # Also check relative to this file's directory
+        try:
+            script_dir = Path(__file__).parent.resolve()
+            refugee_files.extend([
+                script_dir / "unhcr_refugees.json",
+                script_dir / "refugees_unhcr.json",
+                script_dir / "data" / "unhcr_refugees.json",
+                script_dir / "data" / "refugees_unhcr.json",
+            ])
+        except:
+            pass
         
         refugee_file = None
         for f in refugee_files:
@@ -914,8 +927,12 @@ def load_unhcr_refugee_data():
             pass
         
         # Load as regular JSON
-        with open(refugee_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        try:
+            with open(str(refugee_file), 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception as e:
+            # If file read fails, return empty
+            return gpd.GeoDataFrame()
         
         # Handle UNHCR JSON structure: {"data": [{"centroid_lon": ..., "centroid_lat": ..., ...}]}
         if isinstance(data, dict) and 'data' in data:
@@ -935,18 +952,37 @@ def load_unhcr_refugee_data():
                 lon = record.get('centroid_lon')
                 lat = record.get('centroid_lat')
                 
-                if pd.notna(lon) and pd.notna(lat):
+                # Handle string numbers
+                try:
+                    lon = float(lon) if lon else None
+                    lat = float(lat) if lat else None
+                except (ValueError, TypeError):
+                    lon = None
+                    lat = None
+                
+                if lon is not None and lat is not None and pd.notna(lon) and pd.notna(lat):
                     # Create point geometry from centroid
                     point = Point(lon, lat)
                     
                     # Extract key information
+                    individuals_str = record.get('individuals', '0')
+                    households_str = record.get('households', '0')
+                    try:
+                        individuals = int(individuals_str) if individuals_str else 0
+                    except (ValueError, TypeError):
+                        individuals = 0
+                    try:
+                        households = int(households_str) if households_str else 0
+                    except (ValueError, TypeError):
+                        households = 0
+                    
                     refugee_record = {
                         'geometry': point,
                         'province': record.get('geomaster_name', 'Unknown'),
                         'province_id': record.get('geomaster_id', ''),
                         'admin_level': record.get('admin_level', ''),
-                        'individuals': int(record.get('individuals', 0)) if record.get('individuals') else 0,
-                        'households': int(record.get('households', 0)) if record.get('households') else 0,
+                        'individuals': individuals,
+                        'households': households,
                         'date': record.get('date', ''),
                         'year': record.get('year', ''),
                         'month': record.get('month', ''),
@@ -967,6 +1003,10 @@ def load_unhcr_refugee_data():
         
     except Exception as e:
         # Return empty GeoDataFrame on error (don't show error in UI)
+        import traceback
+        # Uncomment for debugging:
+        # st.error(f"Error loading refugee data: {str(e)}")
+        # st.error(traceback.format_exc())
         return gpd.GeoDataFrame()
 
 @st.cache_data(ttl=3600, show_spinner=False)
