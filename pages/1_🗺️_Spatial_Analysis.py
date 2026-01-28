@@ -205,6 +205,12 @@ show_ethiopia_events = st.sidebar.checkbox(
     help="Show ACLED events from Ethiopia near Djibouti borders for the selected period"
 )
 
+show_yemen_events = st.sidebar.checkbox(
+    "Show Yemen Events",
+    value=False,
+    help="Show ACLED events from Yemen near Djibouti borders for the selected period"
+)
+
 # Process data
 with st.spinner("Processing data for selected period..."):
     pop_data = st.session_state.pop_data
@@ -290,6 +296,7 @@ with tab1:
             # Load neighboring country events if toggled
             somalia_events = None
             ethiopia_events = None
+            yemen_events = None
             
             if show_somalia_events:
                 somalia_events = load_neighboring_country_events(period_info, country='somalia', border_distance_km=200)
@@ -297,9 +304,12 @@ with tab1:
             if show_ethiopia_events:
                 ethiopia_events = load_neighboring_country_events(period_info, country='ethiopia', border_distance_km=200)
             
+            if show_yemen_events:
+                yemen_events = load_neighboring_country_events(period_info, country='yemen', border_distance_km=200)
+            
             payam_map = create_payam_map(
                 merged, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams,
-                somalia_events=somalia_events, ethiopia_events=ethiopia_events
+                somalia_events=somalia_events, ethiopia_events=ethiopia_events, yemen_events=yemen_events
             )
             if payam_map:
                 st_folium(payam_map, width=None, height=600, returned_objects=["last_object_clicked"])

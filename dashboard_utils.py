@@ -877,6 +877,8 @@ def load_neighboring_country_events(period_info, country='somalia', border_dista
             acled_file = Path("acled_Somalia.csv")
         elif country.lower() == 'ethiopia':
             acled_file = Path("acled_Ethiopia.csv")
+        elif country.lower() == 'yemen':
+            acled_file = Path("acled_Yemen.csv")
         else:
             return gpd.GeoDataFrame()
         

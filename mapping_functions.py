@@ -181,7 +181,7 @@ def create_admin_map(aggregated, boundaries, agg_level, map_var, agg_thresh, per
     
     return m
 
-def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams=False, somalia_events=None, ethiopia_events=None):
+def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams=False, somalia_events=None, ethiopia_events=None, yemen_events=None):
     """Create sub-prefecture (admin3) classification map with highly optimized performance"""
     import time
     import json
@@ -418,6 +418,41 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                 weight=2
             ).add_to(m)
     
+    if yemen_events is not None and not yemen_events.empty:
+        for idx, event in yemen_events.iterrows():
+            # Create popup content
+            event_date = event.get('event_date', 'N/A')
+            if pd.notna(event_date) and hasattr(event_date, 'strftime'):
+                event_date = event_date.strftime('%Y-%m-%d')
+            elif pd.notna(event_date):
+                event_date = str(event_date)[:10]  # Take first 10 chars for date
+            
+            notes = event.get('notes', '')
+            notes_html = f"<p><strong>Notes:</strong> {str(notes)[:100]}...</p>" if pd.notna(notes) and str(notes) != '' else ''
+            
+            popup_html = f"""
+            <div style="width: 250px; font-family: Arial, sans-serif;">
+                <h4 style="color: #feb24c; margin: 0;">🇾🇪 Yemen Event</h4>
+                <p><strong>Date:</strong> {event_date}</p>
+                <p><strong>Type:</strong> {event.get('event_type', 'N/A')}</p>
+                <p><strong>Location:</strong> {event.get('location', 'N/A')}</p>
+                <p><strong>Fatalities:</strong> {int(event.get('fatalities', 0))}</p>
+                <p><strong>Admin1:</strong> {event.get('admin1', 'N/A')}</p>
+                {notes_html}
+            </div>
+            """
+            
+            folium.CircleMarker(
+                location=[event.geometry.y, event.geometry.x],
+                radius=5 + min(int(event.get('fatalities', 0)) / 5, 15),  # Size based on fatalities
+                popup=folium.Popup(popup_html, max_width=300),
+                tooltip=f"Yemen: {int(event.get('fatalities', 0))} deaths",
+                color='#feb24c',
+                fillColor='#feb24c',
+                fillOpacity=0.7,
+                weight=2
+            ).add_to(m)
+    
     # Add Region borders on top of sub-prefectures (non-interactive to allow sub-prefecture clicks)
     admin1_gdf = boundaries[1]
     if not admin1_gdf.empty:
@@ -454,6 +489,7 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
         <strong>Black borders:</strong> Region boundaries
         {f"<br><strong>🇸🇴 Somalia events:</strong> {len(somalia_events) if somalia_events is not None and not somalia_events.empty else 0}" if somalia_events is not None else ""}
         {f"<br><strong>🇪🇹 Ethiopia events:</strong> {len(ethiopia_events) if ethiopia_events is not None and not ethiopia_events.empty else 0}" if ethiopia_events is not None else ""}
+        {f"<br><strong>🇾🇪 Yemen events:</strong> {len(yemen_events) if yemen_events is not None and not yemen_events.empty else 0}" if yemen_events is not None else ""}
     </div>
     </div>
     '''
