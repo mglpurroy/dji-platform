@@ -180,6 +180,25 @@ def create_admin_map(aggregated, boundaries, agg_level, map_var, agg_thresh, per
     
     m.get_root().html.add_child(folium.Element(legend_html))
     
+    # Move zoom controls to bottom-left using JavaScript (more reliable than CSS)
+    zoom_js = """
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                var zoomControl = document.querySelector('.leaflet-control-zoom');
+                if (zoomControl) {
+                    zoomControl.style.position = 'fixed';
+                    zoomControl.style.top = 'auto';
+                    zoomControl.style.bottom = '20px';
+                    zoomControl.style.left = '10px';
+                    zoomControl.style.right = 'auto';
+                }
+            }, 100);
+        });
+    </script>
+    """
+    m.get_root().html.add_child(folium.Element(zoom_js))
+    
     return m
 
 def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams=False, somalia_events=None, ethiopia_events=None, yemen_events=None, refugee_data=None, show_refugee_layer=False):
@@ -553,8 +572,27 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
             interactive=False  # Disable all interactivity for this layer
         ).add_to(m)
     
-    # Add layer control for collapsible layers
-    folium.LayerControl(collapsed=True).add_to(m)
+    # Add layer control for collapsible layers (top-left to avoid legend overlap)
+    folium.LayerControl(collapsed=True, position='topleft').add_to(m)
+    
+    # Move zoom controls to bottom-left using JavaScript (more reliable than CSS)
+    zoom_js = """
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                var zoomControl = document.querySelector('.leaflet-control-zoom');
+                if (zoomControl) {
+                    zoomControl.style.position = 'fixed';
+                    zoomControl.style.top = 'auto';
+                    zoomControl.style.bottom = '20px';
+                    zoomControl.style.left = '10px';
+                    zoomControl.style.right = 'auto';
+                }
+            }, 100);
+        });
+    </script>
+    """
+    m.get_root().html.add_child(folium.Element(zoom_js))
     
     # Simplified legend
     legend_html = f'''
