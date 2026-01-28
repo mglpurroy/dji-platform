@@ -401,7 +401,6 @@ def load_population_data():
         # Cache the result (only if we have data)
         if not result_df.empty:
             save_to_cache(cache_key, result_df)
-            st.info(f"📊 Population data loaded: {len(result_df)} sub-prefectures")
         else:
             st.warning("⚠️ No population data was loaded. Check errors above.")
         
@@ -784,7 +783,7 @@ def load_admin_boundaries():
     start_time = time.time()
     
     # Check cache first
-    cache_key = get_cache_key("djibouti_admin_boundaries", "v8_geojson")
+    cache_key = get_cache_key("djibouti_admin_boundaries", "v9_geojson_no_messages")
     cached_data = load_from_cache(cache_key)
     if cached_data is not None:
         log_performance("load_admin_boundaries", time.time() - start_time)
