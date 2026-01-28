@@ -220,11 +220,6 @@ with st.spinner("Processing data for selected period..."):
     # Check if we have population data
     if pop_data.empty or admin_data['admin3'].empty:
         st.warning("⚠️ No population data available. Please ensure the population data file exists and matches the boundary data.")
-        st.info(f"Population data: {len(pop_data)} rows, Admin3 data: {len(admin_data.get('admin3', pd.DataFrame()))} rows")
-        if boundaries and 3 in boundaries and not boundaries[3].empty:
-            st.info(f"Boundaries admin3: {len(boundaries[3])} features")
-            if 'ADM3_PCODE' in boundaries[3].columns:
-                st.info(f"Sample boundary PCODEs: {boundaries[3]['ADM3_PCODE'].head(3).tolist()}")
         st.stop()
     
     # Classify and aggregate
@@ -294,21 +289,11 @@ with tab1:
         with st.spinner("Generating sub-prefecture map... This may take a moment."):
             # Always load neighboring country events (filtered by selected date range)
             somalia_events = load_neighboring_country_events(period_info, country='somalia', border_distance_km=200)
-            if somalia_events is not None and not somalia_events.empty:
-                st.info(f"🇸🇴 Loaded {len(somalia_events)} Somalia events for {period_info['label']}")
-            
             ethiopia_events = load_neighboring_country_events(period_info, country='ethiopia', border_distance_km=200)
-            if ethiopia_events is not None and not ethiopia_events.empty:
-                st.info(f"🇪🇹 Loaded {len(ethiopia_events)} Ethiopia events for {period_info['label']}")
-            
             yemen_events = load_neighboring_country_events(period_info, country='yemen', border_distance_km=200)
-            if yemen_events is not None and not yemen_events.empty:
-                st.info(f"🇾🇪 Loaded {len(yemen_events)} Yemen events for {period_info['label']}")
             
             # Always load UNHCR refugee data
             refugee_data = load_unhcr_refugee_data()
-            if refugee_data is not None and not refugee_data.empty:
-                st.success(f"🏕️ Loaded {len(refugee_data)} UNHCR refugee locations")
             
             payam_map = create_payam_map(
                 merged, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams,
