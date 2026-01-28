@@ -875,11 +875,11 @@ def load_admin_boundaries():
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_neighboring_country_events(period_info, country='somalia', border_distance_km=200):
-    """Load ACLED events from neighboring countries (Somalia/Ethiopia) near Djibouti borders
+    """Load ACLED events from neighboring countries (Somalia/Ethiopia/Yemen) near Djibouti borders
     
     Args:
-        period_info: Period information dict with start/end year/month
-        country: 'somalia' or 'ethiopia'
+        period_info: Period information dict with start/end year/month - events are filtered to this date range
+        country: 'somalia', 'ethiopia', or 'yemen'
         border_distance_km: Maximum distance from Djibouti border in km (default 200km)
     
     Returns:

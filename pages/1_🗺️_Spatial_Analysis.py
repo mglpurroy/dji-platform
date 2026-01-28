@@ -308,19 +308,25 @@ tab1, tab2 = st.tabs(["🏘️ Sub-prefectures", "📍 Regions"])
 with tab1:
     if len(merged) > 0 and boundaries and isinstance(boundaries, dict) and 3 in boundaries and not boundaries[3].empty:
         with st.spinner("Generating sub-prefecture map... This may take a moment."):
-            # Load neighboring country events if toggled
+            # Load neighboring country events if toggled (filtered by selected date range)
             somalia_events = None
             ethiopia_events = None
             yemen_events = None
             
             if show_somalia_events:
                 somalia_events = load_neighboring_country_events(period_info, country='somalia', border_distance_km=200)
+                if somalia_events is not None and not somalia_events.empty:
+                    st.info(f"🇸🇴 Loaded {len(somalia_events)} Somalia events for {period_info['label']}")
             
             if show_ethiopia_events:
                 ethiopia_events = load_neighboring_country_events(period_info, country='ethiopia', border_distance_km=200)
+                if ethiopia_events is not None and not ethiopia_events.empty:
+                    st.info(f"🇪🇹 Loaded {len(ethiopia_events)} Ethiopia events for {period_info['label']}")
             
             if show_yemen_events:
                 yemen_events = load_neighboring_country_events(period_info, country='yemen', border_distance_km=200)
+                if yemen_events is not None and not yemen_events.empty:
+                    st.info(f"🇾🇪 Loaded {len(yemen_events)} Yemen events for {period_info['label']}")
             
             payam_map = create_payam_map(
                 merged, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams,
