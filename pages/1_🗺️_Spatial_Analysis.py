@@ -14,7 +14,7 @@ from dashboard_utils import (
     init_session_state, load_custom_css,
     load_population_data, create_admin_levels, load_conflict_data,
     load_admin_boundaries, classify_and_aggregate_data, load_neighboring_country_events,
-    get_latest_commit_date
+    get_latest_commit_date, load_unhcr_refugee_data
 )
 from mapping_functions import create_admin_map, create_payam_map
 from streamlit_folium import st_folium
@@ -226,6 +226,15 @@ show_yemen_events = st.sidebar.checkbox(
     help="Show ACLED events from Yemen near Djibouti borders for the selected period"
 )
 
+# Additional layers
+st.sidebar.subheader("📊 Additional Layers")
+
+show_refugee_layer = st.sidebar.checkbox(
+    "Show UNHCR Refugee Data",
+    value=False,
+    help="Show UNHCR refugee data on the map (toggleable in map layer control)"
+)
+
 # Process data
 with st.spinner("Processing data for selected period..."):
     pop_data = st.session_state.pop_data
@@ -328,9 +337,19 @@ with tab1:
                 if yemen_events is not None and not yemen_events.empty:
                     st.info(f"🇾🇪 Loaded {len(yemen_events)} Yemen events for {period_info['label']}")
             
+            # Load UNHCR refugee data if enabled
+            refugee_data = None
+            if show_refugee_layer:
+                refugee_data = load_unhcr_refugee_data()
+                if refugee_data is not None and not refugee_data.empty:
+                    st.info(f"🏕️ Loaded {len(refugee_data)} UNHCR refugee locations")
+                elif show_refugee_layer:
+                    st.warning("⚠️ UNHCR refugee data file not found. Please ensure the JSON file is in the project directory.")
+            
             payam_map = create_payam_map(
                 merged, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams,
-                somalia_events=somalia_events, ethiopia_events=ethiopia_events, yemen_events=yemen_events
+                somalia_events=somalia_events, ethiopia_events=ethiopia_events, yemen_events=yemen_events,
+                refugee_data=refugee_data, show_refugee_layer=show_refugee_layer
             )
             if payam_map:
                 st_folium(payam_map, width=None, height=600, returned_objects=["last_object_clicked"])

@@ -181,7 +181,7 @@ def create_admin_map(aggregated, boundaries, agg_level, map_var, agg_thresh, per
     
     return m
 
-def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams=False, somalia_events=None, ethiopia_events=None, yemen_events=None):
+def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams=False, somalia_events=None, ethiopia_events=None, yemen_events=None, refugee_data=None, show_refugee_layer=False):
     """Create sub-prefecture (admin3) classification map with highly optimized performance"""
     import time
     import json
@@ -284,6 +284,9 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
         max_zoom=12,
         zoom_control=True
     )
+    
+    # Create FeatureGroups for layer control (collapsible layers)
+    refugee_layer = folium.FeatureGroup(name='UNHCR Refugee Data', show=show_refugee_layer)
     
     # Create a single GeoJson layer with all sub-prefectures (much faster than individual layers)
     # Prepare fields for tooltip and popup
@@ -453,6 +456,67 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                 weight=2
             ).add_to(m)
     
+    # Add refugee data layer if provided and enabled
+    if refugee_data is not None and not refugee_data.empty and show_refugee_layer:
+        refugee_data_clean = clean_gdf_for_folium(refugee_data)
+        
+        # Determine if refugee data has point or polygon geometry
+        has_points = refugee_data_clean.geometry.type.isin(['Point', 'MultiPoint']).any()
+        
+        for idx, row in refugee_data_clean.iterrows():
+            try:
+                # Create popup content
+                popup_fields = []
+                for col in refugee_data_clean.columns:
+                    if col != 'geometry' and pd.notna(row.get(col)):
+                        value = row[col]
+                        # Format numbers nicely
+                        if isinstance(value, (int, float)):
+                            if value >= 1000:
+                                value = f"{value:,.0f}"
+                            else:
+                                value = str(value)
+                        popup_fields.append(f"<p><strong>{col}:</strong> {value}</p>")
+                
+                popup_html = f"""
+                <div style="width: 250px; font-family: Arial, sans-serif;">
+                    <h4 style="color: #6a51a3; margin: 0;">🏕️ UNHCR Refugee Data</h4>
+                    {''.join(popup_fields)}
+                </div>
+                """
+                
+                if has_points:
+                    # Point geometry - use CircleMarker
+                    if row.geometry.geom_type == 'Point':
+                        folium.CircleMarker(
+                            location=[row.geometry.y, row.geometry.x],
+                            radius=8,
+                            popup=folium.Popup(popup_html, max_width=300),
+                            tooltip="UNHCR Refugee Location",
+                            color='#6a51a3',
+                            fillColor='#6a51a3',
+                            fillOpacity=0.7,
+                            weight=2
+                        ).add_to(refugee_layer)
+                else:
+                    # Polygon geometry - use GeoJson
+                    folium.GeoJson(
+                        row.geometry,
+                        style_function=lambda x: {
+                            'fillColor': '#6a51a3',
+                            'color': '#4a3a73',
+                            'weight': 1.5,
+                            'fillOpacity': 0.4,
+                            'opacity': 0.7
+                        },
+                        popup=folium.Popup(popup_html, max_width=300),
+                        tooltip="UNHCR Refugee Area"
+                    ).add_to(refugee_layer)
+            except Exception:
+                continue  # Skip invalid geometries
+        
+        refugee_layer.add_to(m)
+    
     # Add Region borders on top of sub-prefectures (non-interactive to allow sub-prefecture clicks)
     admin1_gdf = boundaries[1]
     if not admin1_gdf.empty:
@@ -469,6 +533,9 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
             },
             interactive=False  # Disable all interactivity for this layer
         ).add_to(m)
+    
+    # Add layer control for collapsible layers
+    folium.LayerControl(collapsed=True).add_to(m)
     
     # Simplified legend
     legend_html = f'''
@@ -490,6 +557,7 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
         {f"<br><strong>🇸🇴 Somalia events:</strong> {len(somalia_events) if somalia_events is not None and not somalia_events.empty else 0}" if somalia_events is not None else ""}
         {f"<br><strong>🇪🇹 Ethiopia events:</strong> {len(ethiopia_events) if ethiopia_events is not None and not ethiopia_events.empty else 0}" if ethiopia_events is not None else ""}
         {f"<br><strong>🇾🇪 Yemen events:</strong> {len(yemen_events) if yemen_events is not None and not yemen_events.empty else 0}" if yemen_events is not None else ""}
+        {f"<br><strong>🏕️ Refugee locations:</strong> {len(refugee_data) if refugee_data is not None and not refugee_data.empty else 0}" if show_refugee_layer and refugee_data is not None else ""}
     </div>
     </div>
     '''

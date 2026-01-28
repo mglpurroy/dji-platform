@@ -874,6 +874,90 @@ def load_admin_boundaries():
     return boundaries
 
 @st.cache_data(ttl=3600, show_spinner=False)
+def load_unhcr_refugee_data():
+    """Load UNHCR refugee data from JSON file
+    
+    Returns:
+        GeoDataFrame with refugee data, or empty GeoDataFrame if file not found
+    """
+    try:
+        import json
+        import geopandas as gpd
+        from shapely.geometry import Point
+        
+        # Look for UNHCR refugee JSON file (could be GeoJSON or regular JSON)
+        refugee_files = [
+            Path("unhcr_refugees.json"),
+            Path("refugees_unhcr.json"),
+            Path("data/unhcr_refugees.json"),
+            Path("data/refugees_unhcr.json"),
+        ]
+        
+        refugee_file = None
+        for f in refugee_files:
+            if f.exists():
+                refugee_file = f
+                break
+        
+        if not refugee_file:
+            return gpd.GeoDataFrame()
+        
+        # Try to load as GeoJSON first
+        try:
+            refugee_gdf = gpd.read_file(str(refugee_file))
+            if not refugee_gdf.empty:
+                refugee_gdf = refugee_gdf.to_crs('EPSG:4326')
+                return refugee_gdf
+        except:
+            pass
+        
+        # If not GeoJSON, try loading as regular JSON
+        with open(refugee_file, 'r') as f:
+            data = json.load(f)
+        
+        # Handle different JSON structures
+        if isinstance(data, dict):
+            # If it's a FeatureCollection
+            if 'features' in data:
+                refugee_gdf = gpd.GeoDataFrame.from_features(data['features'], crs='EPSG:4326')
+            # If it's a list of features
+            elif 'type' in data and data['type'] == 'FeatureCollection':
+                refugee_gdf = gpd.GeoDataFrame.from_features(data.get('features', []), crs='EPSG:4326')
+            # If it's a list of records with coordinates
+            elif 'coordinates' in str(data).lower() or 'latitude' in str(data).lower():
+                # Try to convert to GeoDataFrame
+                if isinstance(data, list):
+                    refugee_gdf = gpd.GeoDataFrame(data, crs='EPSG:4326')
+                else:
+                    refugee_gdf = gpd.GeoDataFrame([data], crs='EPSG:4326')
+            else:
+                return gpd.GeoDataFrame()
+        elif isinstance(data, list):
+            # List of features or records
+            if len(data) > 0 and isinstance(data[0], dict):
+                # Check if it has geometry/coordinates
+                if 'geometry' in data[0] or 'coordinates' in data[0] or 'latitude' in data[0]:
+                    refugee_gdf = gpd.GeoDataFrame.from_features(data, crs='EPSG:4326') if 'geometry' in data[0] else gpd.GeoDataFrame(data, crs='EPSG:4326')
+                else:
+                    return gpd.GeoDataFrame()
+            else:
+                return gpd.GeoDataFrame()
+        else:
+            return gpd.GeoDataFrame()
+        
+        # Ensure CRS is set
+        if refugee_gdf.crs is None:
+            refugee_gdf.set_crs('EPSG:4326', inplace=True)
+        else:
+            refugee_gdf = refugee_gdf.to_crs('EPSG:4326')
+        
+        return refugee_gdf
+        
+    except Exception as e:
+        # Silently return empty GeoDataFrame on error
+        return gpd.GeoDataFrame()
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_neighboring_country_events(period_info, country='somalia', border_distance_km=200):
     """Load ACLED events from neighboring countries (Somalia/Ethiopia/Yemen) near Djibouti borders
     
