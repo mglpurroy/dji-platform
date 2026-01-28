@@ -344,8 +344,9 @@ with tab1:
                 if refugee_data is not None and not refugee_data.empty:
                     st.success(f"🏕️ Loaded {len(refugee_data)} UNHCR refugee locations")
                 elif show_refugee_layer:
-                    st.warning("⚠️ UNHCR refugee data file not found. Looking for: unhcr_refugees.json or refugees_unhcr.json in project root or data/ directory.")
-                    st.info("💡 The file should be named 'unhcr_refugees.json' and placed in the project root directory.")
+                    st.warning("⚠️ UNHCR refugee data file not found.")
+                    st.info("💡 Looking for: unhcr_refugees.json or refugees_unhcr.json")
+                    st.info("💡 If the file exists, try clearing Streamlit cache: Settings → Clear cache → Rerun")
             
             payam_map = create_payam_map(
                 merged, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams,

@@ -910,11 +910,16 @@ def load_unhcr_refugee_data():
         
         refugee_file = None
         for f in refugee_files:
-            if f.exists():
-                refugee_file = f
-                break
+            try:
+                if f.exists():
+                    refugee_file = f
+                    break
+            except:
+                continue
         
         if not refugee_file:
+            # Debug: uncomment to see which paths were checked
+            # st.warning(f"Checked paths: {[str(f) for f in refugee_files]}")
             return gpd.GeoDataFrame()
         
         # Try to load as GeoJSON first
