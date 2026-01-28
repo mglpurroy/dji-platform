@@ -205,34 +205,10 @@ show_all_payams = st.sidebar.checkbox(
     help="If checked, shows all sub-prefectures. If unchecked, shows only violence-affected sub-prefectures (faster rendering)"
 )
 
-# Additional layers - Load data (visibility controlled by map layer control)
+# Additional layers info
 st.sidebar.subheader("🌍 Additional Map Layers")
 
-st.sidebar.info("💡 **Note:** Layers can be toggled on/off using the map's layer control (top-right of map)")
-
-show_somalia_events = st.sidebar.checkbox(
-    "Load Somalia Events",
-    value=False,
-    help="Load ACLED events from Somalia (toggle visibility in map layer control)"
-)
-
-show_ethiopia_events = st.sidebar.checkbox(
-    "Load Ethiopia Events",
-    value=False,
-    help="Load ACLED events from Ethiopia (toggle visibility in map layer control)"
-)
-
-show_yemen_events = st.sidebar.checkbox(
-    "Load Yemen Events",
-    value=False,
-    help="Load ACLED events from Yemen (toggle visibility in map layer control)"
-)
-
-show_refugee_layer = st.sidebar.checkbox(
-    "Load UNHCR Refugee Data",
-    value=False,
-    help="Load UNHCR refugee data (toggle visibility in map layer control)"
-)
+st.sidebar.info("💡 **Note:** Additional layers (neighboring country events and UNHCR refugee data) are automatically loaded. Toggle visibility using the map's layer control (top-left of map).")
 
 # Process data
 with st.spinner("Processing data for selected period..."):
@@ -316,41 +292,28 @@ tab1, tab2 = st.tabs(["🏘️ Sub-prefectures", "📍 Regions"])
 with tab1:
     if len(merged) > 0 and boundaries and isinstance(boundaries, dict) and 3 in boundaries and not boundaries[3].empty:
         with st.spinner("Generating sub-prefecture map... This may take a moment."):
-            # Load neighboring country events if toggled (filtered by selected date range)
-            somalia_events = None
-            ethiopia_events = None
-            yemen_events = None
+            # Always load neighboring country events (filtered by selected date range)
+            somalia_events = load_neighboring_country_events(period_info, country='somalia', border_distance_km=200)
+            if somalia_events is not None and not somalia_events.empty:
+                st.info(f"🇸🇴 Loaded {len(somalia_events)} Somalia events for {period_info['label']}")
             
-            if show_somalia_events:
-                somalia_events = load_neighboring_country_events(period_info, country='somalia', border_distance_km=200)
-                if somalia_events is not None and not somalia_events.empty:
-                    st.info(f"🇸🇴 Loaded {len(somalia_events)} Somalia events for {period_info['label']}")
+            ethiopia_events = load_neighboring_country_events(period_info, country='ethiopia', border_distance_km=200)
+            if ethiopia_events is not None and not ethiopia_events.empty:
+                st.info(f"🇪🇹 Loaded {len(ethiopia_events)} Ethiopia events for {period_info['label']}")
             
-            if show_ethiopia_events:
-                ethiopia_events = load_neighboring_country_events(period_info, country='ethiopia', border_distance_km=200)
-                if ethiopia_events is not None and not ethiopia_events.empty:
-                    st.info(f"🇪🇹 Loaded {len(ethiopia_events)} Ethiopia events for {period_info['label']}")
+            yemen_events = load_neighboring_country_events(period_info, country='yemen', border_distance_km=200)
+            if yemen_events is not None and not yemen_events.empty:
+                st.info(f"🇾🇪 Loaded {len(yemen_events)} Yemen events for {period_info['label']}")
             
-            if show_yemen_events:
-                yemen_events = load_neighboring_country_events(period_info, country='yemen', border_distance_km=200)
-                if yemen_events is not None and not yemen_events.empty:
-                    st.info(f"🇾🇪 Loaded {len(yemen_events)} Yemen events for {period_info['label']}")
-            
-            # Load UNHCR refugee data if enabled
-            refugee_data = None
-            if show_refugee_layer:
-                refugee_data = load_unhcr_refugee_data()
-                if refugee_data is not None and not refugee_data.empty:
-                    st.success(f"🏕️ Loaded {len(refugee_data)} UNHCR refugee locations")
-                elif show_refugee_layer:
-                    st.warning("⚠️ UNHCR refugee data file not found.")
-                    st.info("💡 Looking for: unhcr_refugees.json or refugees_unhcr.json")
-                    st.info("💡 If the file exists, try clearing Streamlit cache: Settings → Clear cache → Rerun")
+            # Always load UNHCR refugee data
+            refugee_data = load_unhcr_refugee_data()
+            if refugee_data is not None and not refugee_data.empty:
+                st.success(f"🏕️ Loaded {len(refugee_data)} UNHCR refugee locations")
             
             payam_map = create_payam_map(
                 merged, boundaries, period_info, rate_thresh, abs_thresh, show_all_payams,
                 somalia_events=somalia_events, ethiopia_events=ethiopia_events, yemen_events=yemen_events,
-                refugee_data=refugee_data, show_refugee_layer=show_refugee_layer
+                refugee_data=refugee_data, show_refugee_layer=True  # Always show refugee layer if data exists
             )
             if payam_map:
                 st_folium(payam_map, width=None, height=600, returned_objects=["last_object_clicked"])
