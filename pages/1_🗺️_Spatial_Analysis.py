@@ -205,34 +205,33 @@ show_all_payams = st.sidebar.checkbox(
     help="If checked, shows all sub-prefectures. If unchecked, shows only violence-affected sub-prefectures (faster rendering)"
 )
 
-# Neighboring country events
-st.sidebar.subheader("🌍 Neighboring Country Events")
+# Additional layers - Load data (visibility controlled by map layer control)
+st.sidebar.subheader("🌍 Additional Map Layers")
+
+st.sidebar.info("💡 **Note:** Layers can be toggled on/off using the map's layer control (top-right of map)")
 
 show_somalia_events = st.sidebar.checkbox(
-    "Show Somalia Events",
+    "Load Somalia Events",
     value=False,
-    help="Show ACLED events from Somalia near Djibouti borders for the selected period"
+    help="Load ACLED events from Somalia (toggle visibility in map layer control)"
 )
 
 show_ethiopia_events = st.sidebar.checkbox(
-    "Show Ethiopia Events",
+    "Load Ethiopia Events",
     value=False,
-    help="Show ACLED events from Ethiopia near Djibouti borders for the selected period"
+    help="Load ACLED events from Ethiopia (toggle visibility in map layer control)"
 )
 
 show_yemen_events = st.sidebar.checkbox(
-    "Show Yemen Events",
+    "Load Yemen Events",
     value=False,
-    help="Show ACLED events from Yemen near Djibouti borders for the selected period"
+    help="Load ACLED events from Yemen (toggle visibility in map layer control)"
 )
 
-# Additional layers
-st.sidebar.subheader("📊 Additional Layers")
-
 show_refugee_layer = st.sidebar.checkbox(
-    "Show UNHCR Refugee Data",
+    "Load UNHCR Refugee Data",
     value=False,
-    help="Show UNHCR refugee data on the map (toggleable in map layer control)"
+    help="Load UNHCR refugee data (toggle visibility in map layer control)"
 )
 
 # Process data

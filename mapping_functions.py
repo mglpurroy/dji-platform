@@ -1,4 +1,5 @@
 import folium
+from folium.plugins import FeatureGroupSubGroup
 import geopandas as gpd
 import pandas as pd
 import streamlit as st
@@ -285,8 +286,17 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
         zoom_control=True
     )
     
-    # Create FeatureGroups for layer control (collapsible layers)
-    refugee_layer = folium.FeatureGroup(name='UNHCR Refugee Data', show=show_refugee_layer)
+    # Create parent FeatureGroup for additional layers (collapsible)
+    additional_layers_parent = folium.FeatureGroup(name="Additional Layers", show=False)
+    
+    # Create subgroups for different layer types
+    conflict_events_group = FeatureGroupSubGroup(additional_layers_parent, "Neighboring Country Events")
+    refugee_group = FeatureGroupSubGroup(additional_layers_parent, "UNHCR Refugee Data")
+    
+    # Create individual subgroups for each country
+    somalia_subgroup = FeatureGroupSubGroup(conflict_events_group, "Somalia Events")
+    ethiopia_subgroup = FeatureGroupSubGroup(conflict_events_group, "Ethiopia Events")
+    yemen_subgroup = FeatureGroupSubGroup(conflict_events_group, "Yemen Events")
     
     # Create a single GeoJson layer with all sub-prefectures (much faster than individual layers)
     # Prepare fields for tooltip and popup
@@ -350,7 +360,7 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
     
     payam_geojson.add_to(m)
     
-    # Add neighboring country events as point layers
+    # Add neighboring country events as point layers (always add to subgroups if data exists)
     if somalia_events is not None and not somalia_events.empty:
         for idx, event in somalia_events.iterrows():
             # Create popup content
@@ -384,7 +394,7 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                 fillColor='#e31a1c',
                 fillOpacity=0.7,
                 weight=2
-            ).add_to(m)
+            ).add_to(somalia_subgroup)
     
     if ethiopia_events is not None and not ethiopia_events.empty:
         for idx, event in ethiopia_events.iterrows():
@@ -419,7 +429,7 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                 fillColor='#238b45',
                 fillOpacity=0.7,
                 weight=2
-            ).add_to(m)
+            ).add_to(ethiopia_subgroup)
     
     if yemen_events is not None and not yemen_events.empty:
         for idx, event in yemen_events.iterrows():
@@ -454,10 +464,10 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                 fillColor='#feb24c',
                 fillOpacity=0.7,
                 weight=2
-            ).add_to(m)
+            ).add_to(yemen_subgroup)
     
-    # Add refugee data layer if provided and enabled
-    if refugee_data is not None and not refugee_data.empty and show_refugee_layer:
+    # Add refugee data layer if provided (always add to subgroup if data exists)
+    if refugee_data is not None and not refugee_data.empty:
         refugee_data_clean = clean_gdf_for_folium(refugee_data)
         
         for idx, row in refugee_data_clean.iterrows():
@@ -519,11 +529,12 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
                         fillColor='#6a51a3',
                         fillOpacity=0.7,
                         weight=2
-                    ).add_to(refugee_layer)
+                    ).add_to(refugee_group)
             except Exception:
                 continue  # Skip invalid geometries
-        
-        refugee_layer.add_to(m)
+    
+    # Add all subgroups and parent group to map
+    additional_layers_parent.add_to(m)
     
     # Add Region borders on top of sub-prefectures (non-interactive to allow sub-prefecture clicks)
     admin1_gdf = boundaries[1]
