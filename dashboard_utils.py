@@ -877,6 +877,8 @@ def load_admin_boundaries():
 def load_unhcr_refugee_data():
     """Load UNHCR refugee data from JSON file
     
+    Handles UNHCR JSON format with centroid coordinates and refugee statistics
+    
     Returns:
         GeoDataFrame with refugee data, or empty GeoDataFrame if file not found
     """
@@ -885,7 +887,7 @@ def load_unhcr_refugee_data():
         import geopandas as gpd
         from shapely.geometry import Point
         
-        # Look for UNHCR refugee JSON file (could be GeoJSON or regular JSON)
+        # Look for UNHCR refugee JSON file
         refugee_files = [
             Path("unhcr_refugees.json"),
             Path("refugees_unhcr.json"),
@@ -911,50 +913,60 @@ def load_unhcr_refugee_data():
         except:
             pass
         
-        # If not GeoJSON, try loading as regular JSON
-        with open(refugee_file, 'r') as f:
+        # Load as regular JSON
+        with open(refugee_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        # Handle different JSON structures
-        if isinstance(data, dict):
-            # If it's a FeatureCollection
-            if 'features' in data:
-                refugee_gdf = gpd.GeoDataFrame.from_features(data['features'], crs='EPSG:4326')
-            # If it's a list of features
-            elif 'type' in data and data['type'] == 'FeatureCollection':
-                refugee_gdf = gpd.GeoDataFrame.from_features(data.get('features', []), crs='EPSG:4326')
-            # If it's a list of records with coordinates
-            elif 'coordinates' in str(data).lower() or 'latitude' in str(data).lower():
-                # Try to convert to GeoDataFrame
-                if isinstance(data, list):
-                    refugee_gdf = gpd.GeoDataFrame(data, crs='EPSG:4326')
-                else:
-                    refugee_gdf = gpd.GeoDataFrame([data], crs='EPSG:4326')
-            else:
-                return gpd.GeoDataFrame()
+        # Handle UNHCR JSON structure: {"data": [{"centroid_lon": ..., "centroid_lat": ..., ...}]}
+        if isinstance(data, dict) and 'data' in data:
+            records = data['data']
         elif isinstance(data, list):
-            # List of features or records
-            if len(data) > 0 and isinstance(data[0], dict):
-                # Check if it has geometry/coordinates
-                if 'geometry' in data[0] or 'coordinates' in data[0] or 'latitude' in data[0]:
-                    refugee_gdf = gpd.GeoDataFrame.from_features(data, crs='EPSG:4326') if 'geometry' in data[0] else gpd.GeoDataFrame(data, crs='EPSG:4326')
-                else:
-                    return gpd.GeoDataFrame()
-            else:
-                return gpd.GeoDataFrame()
+            records = data
         else:
             return gpd.GeoDataFrame()
         
-        # Ensure CRS is set
-        if refugee_gdf.crs is None:
-            refugee_gdf.set_crs('EPSG:4326', inplace=True)
-        else:
-            refugee_gdf = refugee_gdf.to_crs('EPSG:4326')
+        if not records or len(records) == 0:
+            return gpd.GeoDataFrame()
+        
+        # Create GeoDataFrame from records with centroid coordinates
+        refugee_list = []
+        for record in records:
+            if 'centroid_lon' in record and 'centroid_lat' in record:
+                lon = record.get('centroid_lon')
+                lat = record.get('centroid_lat')
+                
+                if pd.notna(lon) and pd.notna(lat):
+                    # Create point geometry from centroid
+                    point = Point(lon, lat)
+                    
+                    # Extract key information
+                    refugee_record = {
+                        'geometry': point,
+                        'province': record.get('geomaster_name', 'Unknown'),
+                        'province_id': record.get('geomaster_id', ''),
+                        'admin_level': record.get('admin_level', ''),
+                        'individuals': int(record.get('individuals', 0)) if record.get('individuals') else 0,
+                        'households': int(record.get('households', 0)) if record.get('households') else 0,
+                        'date': record.get('date', ''),
+                        'year': record.get('year', ''),
+                        'month': record.get('month', ''),
+                        'source': record.get('source', ''),
+                        'population_groups': record.get('population_groups', []),
+                        'population_groups_concat': record.get('population_groups_concat', ''),
+                    }
+                    
+                    refugee_list.append(refugee_record)
+        
+        if len(refugee_list) == 0:
+            return gpd.GeoDataFrame()
+        
+        # Create GeoDataFrame
+        refugee_gdf = gpd.GeoDataFrame(refugee_list, crs='EPSG:4326')
         
         return refugee_gdf
         
     except Exception as e:
-        # Silently return empty GeoDataFrame on error
+        # Return empty GeoDataFrame on error (don't show error in UI)
         return gpd.GeoDataFrame()
 
 @st.cache_data(ttl=3600, show_spinner=False)

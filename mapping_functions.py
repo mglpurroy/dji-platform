@@ -460,57 +460,65 @@ def create_payam_map(payam_data, boundaries, period_info, rate_thresh, abs_thres
     if refugee_data is not None and not refugee_data.empty and show_refugee_layer:
         refugee_data_clean = clean_gdf_for_folium(refugee_data)
         
-        # Determine if refugee data has point or polygon geometry
-        has_points = refugee_data_clean.geometry.type.isin(['Point', 'MultiPoint']).any()
-        
         for idx, row in refugee_data_clean.iterrows():
             try:
-                # Create popup content
-                popup_fields = []
-                for col in refugee_data_clean.columns:
-                    if col != 'geometry' and pd.notna(row.get(col)):
-                        value = row[col]
-                        # Format numbers nicely
-                        if isinstance(value, (int, float)):
-                            if value >= 1000:
-                                value = f"{value:,.0f}"
-                            else:
-                                value = str(value)
-                        popup_fields.append(f"<p><strong>{col}:</strong> {value}</p>")
+                # Get refugee statistics
+                individuals = row.get('individuals', 0)
+                households = row.get('households', 0)
+                province = row.get('province', 'Unknown')
+                date = row.get('date', '')
+                source = row.get('source', '')
                 
+                # Format population groups
+                pop_groups = row.get('population_groups', [])
+                pop_groups_html = ""
+                if pop_groups and isinstance(pop_groups, list):
+                    # Group by origin country
+                    origin_summary = {}
+                    for group in pop_groups:
+                        if isinstance(group, dict):
+                            origin = group.get('pop_origin_name', 'Unknown')
+                            pop_type = group.get('pop_type_name', '')
+                            if origin not in origin_summary:
+                                origin_summary[origin] = {'refugees': 0, 'asylum_seekers': 0}
+                            if 'Refugee' in pop_type:
+                                origin_summary[origin]['refugees'] += 1
+                            elif 'Asylum' in pop_type:
+                                origin_summary[origin]['asylum_seekers'] += 1
+                    
+                    if origin_summary:
+                        pop_groups_html = "<p><strong>Origin Countries:</strong></p><ul style='margin: 5px 0; padding-left: 20px;'>"
+                        for origin, counts in origin_summary.items():
+                            pop_groups_html += f"<li>{origin} (Refugees: {counts['refugees']}, Asylum-seekers: {counts['asylum_seekers']})</li>"
+                        pop_groups_html += "</ul>"
+                
+                # Create popup content
                 popup_html = f"""
-                <div style="width: 250px; font-family: Arial, sans-serif;">
-                    <h4 style="color: #6a51a3; margin: 0;">🏕️ UNHCR Refugee Data</h4>
-                    {''.join(popup_fields)}
+                <div style="width: 280px; font-family: Arial, sans-serif;">
+                    <h4 style="color: #6a51a3; margin: 0 0 8px 0;">🏕️ UNHCR Refugee Data</h4>
+                    <p><strong>Province:</strong> {province}</p>
+                    <p><strong>Total Individuals:</strong> {individuals:,}</p>
+                    <p><strong>Total Households:</strong> {households:,}</p>
+                    {f"<p><strong>Date:</strong> {date}</p>" if date else ""}
+                    {f"<p><strong>Source:</strong> {source}</p>" if source else ""}
+                    {pop_groups_html}
                 </div>
                 """
                 
-                if has_points:
-                    # Point geometry - use CircleMarker
-                    if row.geometry.geom_type == 'Point':
-                        folium.CircleMarker(
-                            location=[row.geometry.y, row.geometry.x],
-                            radius=8,
-                            popup=folium.Popup(popup_html, max_width=300),
-                            tooltip="UNHCR Refugee Location",
-                            color='#6a51a3',
-                            fillColor='#6a51a3',
-                            fillOpacity=0.7,
-                            weight=2
-                        ).add_to(refugee_layer)
-                else:
-                    # Polygon geometry - use GeoJson
-                    folium.GeoJson(
-                        row.geometry,
-                        style_function=lambda x: {
-                            'fillColor': '#6a51a3',
-                            'color': '#4a3a73',
-                            'weight': 1.5,
-                            'fillOpacity': 0.4,
-                            'opacity': 0.7
-                        },
+                # Size marker based on number of individuals
+                radius = max(8, min(20, 8 + (individuals / 1000))) if individuals > 0 else 8
+                
+                # Point geometry - use CircleMarker
+                if row.geometry.geom_type == 'Point':
+                    folium.CircleMarker(
+                        location=[row.geometry.y, row.geometry.x],
+                        radius=radius,
                         popup=folium.Popup(popup_html, max_width=300),
-                        tooltip="UNHCR Refugee Area"
+                        tooltip=f"{province}: {individuals:,} individuals",
+                        color='#6a51a3',
+                        fillColor='#6a51a3',
+                        fillOpacity=0.7,
+                        weight=2
                     ).add_to(refugee_layer)
             except Exception:
                 continue  # Skip invalid geometries
